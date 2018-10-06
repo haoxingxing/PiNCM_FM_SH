@@ -3,7 +3,8 @@
 #PiFmRds https://github.com/ChristopheJacquet/PiFmRds
 clear
 echo "[Initialization]Start"
-PIFM_BIN="sudo ./pi_fm_rds"
+PIFM_BIN_NAME="pi_fm_rds"
+PIFM_BIN_WHERE="./"
 PIFM_FREQ="99.9"
 
 API_Server="localhost:3000" #https://github.com/Binaryify/NeteaseCloudMusicApi
@@ -16,9 +17,9 @@ MusicDir=".music"
 allseconds=0;
 all=0
 
-if [ ! -d "${MusicDir}" ]; then  
-  mkdir ${MusicDir}
-fi  
+if [ ! -d "${MusicDir}" ]; then
+    mkdir ${MusicDir}
+fi
 
 echo "[Initialization]Done"
 
@@ -44,15 +45,16 @@ UpdatePlayList()
     all=$(jq -r '.playlist.trackIds|length' ${TMP_FILE})
     MusicIDArray[${loop}]=$(jq -r '.playlist.trackIds['${loop}']' ${TMP_FILE})
     files=""
+    processbar -1 $all
     while (( $loop<$all ))
     do
-        processbar $loop $all
         MusicIDArray[${loop}]=$(jq -r '.playlist.trackIds['${loop}'].id' ${TMP_FILE})
-        if [ ! -f  "${MusicDir}/${MusicIDArray[${loop}]}.mp3" ]; 
+        if [ ! -f  "${MusicDir}/${MusicIDArray[${loop}]}.mp3" ];
         then
-        $(wget http://music.163.com/song/media/outer/url?id=${MusicIDArray[${loop}]}.mp3 -O ${MusicDir}/${MusicIDArray[${loop}]}.mp3 --quiet -c)
+            $(wget http://music.163.com/song/media/outer/url?id=${MusicIDArray[${loop}]}.mp3 -O ${MusicDir}/${MusicIDArray[${loop}]}.mp3 --quiet -c)
         fi
-        files=${files}"|${MusicDir}/${MusicIDArray[${loop}]}.mp3"    
+        files=${files}"|${MusicDir}/${MusicIDArray[${loop}]}.mp3"
+        processbar $loop $all
         let "loop++"
     done
     echo ""
@@ -60,8 +62,10 @@ UpdatePlayList()
     echo "[PlayList]Merge Music Files"
     $(ffmpeg -i "concat:${files:1}" -loglevel panic -c:a copy -c:v copy -f s16le -ar 22.05k -ac 1 ${MusicDir}/all.wav)
     alltime=$(ffmpeg -i ${MusicDir}/all.wav 2>&1 | grep 'Duration' | cut -d ' ' -f 4 | sed s/,//)
+    ifs_backup=$IFS
     IFS=: DIRS=($alltime)
     declare -p DIRS > /dev/null 2>&1
+    IFS=$ifs_backup
     s=$(echo ${DIRS[2]}| awk '{print int($0)}')
     allseconds=$[$[${DIRS[0]}*3600]+$[${DIRS[1]}*60]+$s]
     echo "[PlayList]All ${allseconds} sec.";
@@ -76,14 +80,14 @@ do
     while (( $loopandreupdate<5 ))
     do
         sn=0
-        $(${PIFM_BIN} "-freq" ${PIFM_FREQ} "-audio "${MusicDir}/"all.wav"& )
+        $(sudo ${PIFM_BIN_WHERE}${PIFM_BIN_NAME} "-freq" ${PIFM_FREQ} "-audio "${MusicDir}/"all.wav"& )
         while (( ${sn}<${allseconds} ))
         do
-            processbar $sn $allseconds
+            processbar ${sn} ${allseconds}
             sleep 1
             let "sn++"
         done
-        killall ${PIFM_BIN}        
+        killall ${PIFM_BIN_NAME}
         echo "[Player]$((5-${loopandreupdate})) loop(s) left to refresh the song list"
         let "loopandreupdate++"
     done
