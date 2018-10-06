@@ -83,7 +83,8 @@ do
             sleep 1
             let "sn++"
         done
-        killall ${PIFM_BIN}
+        killall ${PIFM_BIN}        
+        echo "[Player]$((5-${loopandreupdate})) loop(s) left to refresh the song list"
         let "loopandreupdate++"
     done
 done
