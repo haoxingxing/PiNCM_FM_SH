@@ -66,8 +66,10 @@ UpdatePlayList()
     IFS=: DIRS=($alltime)
     declare -p DIRS > /dev/null 2>&1
     IFS=$ifs_backup
-    s=$(echo ${DIRS[2]}| awk '{print int($0)}')
-    allseconds=$[$[${DIRS[0]}*3600]+$[${DIRS[1]}*60]+$s]
+    s0=$(echo ${DIRS[0]}| awk '{print int($0)}')
+    s1=$(echo ${DIRS[1]}| awk '{print int($0)}')
+    s2=$(echo ${DIRS[2]}| awk '{print int($0)}')
+    allseconds=$[$[$s0*3600]+$[$s1*60]+$s2]
     echo "[PlayList]All ${allseconds} sec.";
     echo "[PlayList]Done"
 }
