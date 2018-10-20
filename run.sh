@@ -1,9 +1,8 @@
 #!/bin/bash
 #requirement: curl jq wget ffmpeg
-#PiFmRds https://github.com/ChristopheJacquet/PiFmRds
 clear
 echo "[Initialization]Start"
-PIFM_BIN_NAME="pi_fm_rds"
+PIFM_BIN_NAME="fm_transmitter" #https://github.com/somu1795/fm_transmitter
 PIFM_BIN_WHERE="./"
 PIFM_FREQ="99.9"
 
@@ -35,11 +34,11 @@ processbar() {
     local perc="[$current/$total]"
     local progress=$((current*barlen/total))
     local prog=$(for i in `seq 0 $progress`; do printf '#'; done)
-    printf "\r[$format" $prog "]"$perc
+    printf "\r\033[33;1m[$format\033[0m" $prog "]"$perc
 }
 UpdatePlayList()
 {
-    echo "[PlayList]Updating"
+    echo -e "\033[33;1m[PlayList]Updating\033[0m"
     echo $(curl --silent --show-error --fail ${API_Server}"/playlist/detail?id="${PlayListID}) > ${TMP_FILE}
     loop=0
     all=$(jq -r '.playlist.trackIds|length' ${TMP_FILE})
@@ -58,9 +57,20 @@ UpdatePlayList()
         let "loop++"
     done
     echo ""
-    $(rm -rf ${MusicDir}/all.wav)
-    echo "[PlayList]Merge Music Files"
-    $(ffmpeg -i "concat:${files:1}" -loglevel panic -c:a copy -c:v copy -f s16le -ar 22.05k -ac 1 ${MusicDir}/all.wav)
+    if [  -e "${MusicDir}/all.wav" ]; then
+	if [ "$(cat .music_last_succ)"x == "${files}"x ]; then
+	 echo  -e "\033[32;1m[PlayerList] NothingChanged\033[0m"
+        else
+         $(rm -rf ${MusicDir}/all.wav)
+         echo -e "\033[34m[PlayList]Merge Music Files\033[0m"
+         $(ffmpeg -i "concat:${files:1}" -loglevel panic -c:a copy -c:v copy -f s16le -ar 22.05k -ac 1 ${MusicDir}/all.wav)
+	 echo ${files} > .music_last_succ
+        fi
+    else
+       echo -e "\033[34m[PlayList]Merge Music Files\033[0m"
+       $(ffmpeg -i "concat:${files:1}" -loglevel panic -c:a copy -c:v copy -f s16le -ar 22.05k -ac 1 ${MusicDir}/all.wav)
+       echo ${files} > .music_last_succ
+    fi
     alltime=$(ffmpeg -i ${MusicDir}/all.wav 2>&1 | grep 'Duration' | cut -d ' ' -f 4 | sed s/,//)
     ifs_backup=$IFS
     IFS=: DIRS=($alltime)
@@ -70,27 +80,28 @@ UpdatePlayList()
     s1=$(echo ${DIRS[1]}| awk '{print int($0)}')
     s2=$(echo ${DIRS[2]}| awk '{print int($0)}')
     allseconds=$[$[$s0*3600]+$[$s1*60]+$s2]
-    echo "[PlayList]All ${allseconds} sec.";
-    echo "[PlayList]Done"
+    echo -e "\033[33m[PlayList]All ${allseconds} sec.\033[0m";
+    echo -e "\033[32;1m[PlayList]Done\033[0m"
 }
 while true
 do
+
     clear
     UpdatePlayList
     loopandreupdate=0
-    echo "[Player]Playing"
-    while (( $loopandreupdate<5 ))
+    echo -e "\033[37;1m[Player]Playing\033[0m"
+    while (( $loopandreupdate<3 ))
     do
         sn=0
-        $(sudo ${PIFM_BIN_WHERE}${PIFM_BIN_NAME} "-freq" ${PIFM_FREQ} "-audio "${MusicDir}/"all.wav"& )
+        #$(echo "87940733" | sudo -S "${PIFM_BIN_WHERE}${PIFM_BIN_NAME}" "-f" ${PIFM_FREQ} " -r "${MusicDir}/"all.wav"& )
         while (( ${sn}<${allseconds} ))
         do
             processbar ${sn} ${allseconds}
             sleep 1
             let "sn++"
         done
-        killall ${PIFM_BIN_NAME}
-        echo "[Player]$((5-${loopandreupdate})) loop(s) left to refresh the song list"
+        #echo "87940733" | sudo -S killall ${PIFM_BIN_NAME}
+        echo -e "\033[37;1m[Player]$((3-${loopandreupdate})) loop(s) left to refresh the song list\033[0m"
         let "loopandreupdate++"
     done
 done
