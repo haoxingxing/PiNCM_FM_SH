@@ -44,6 +44,7 @@ UpdatePlayList()
     all=$(jq -r '.playlist.trackIds|length' ${TMP_FILE})
     MusicIDArray[${loop}]=$(jq -r '.playlist.trackIds['${loop}']' ${TMP_FILE})
     files=""
+    randomlist=""
     processbar -1 $all
     while (( $loop<$all ))
     do
@@ -53,9 +54,12 @@ UpdatePlayList()
             $(wget http://music.163.com/song/media/outer/url?id=${MusicIDArray[${loop}]}.mp3 -O ${MusicDir}/${MusicIDArray[${loop}]}.mp3 --quiet -c)
         fi
         files=${files}"|${MusicDir}/${MusicIDArray[${loop}]}.mp3"
+	randomlist=${randomlist}" ${MusicDir}/${MusicIDArray[${loop}]}.mp3"
         processbar $loop $all
         let "loop++"
     done
+    rdl=$(shuf -e ${randomlist:1})
+    rdl=$(echo $rdl |tr " " "|")
     echo ""
     if [  -e "${MusicDir}/all.wav" ]; then
 	if [ "$(cat .music_last_succ)"x == "${files}"x ]; then
@@ -63,11 +67,13 @@ UpdatePlayList()
         else
          $(rm -rf ${MusicDir}/all.wav)
          echo -e "\033[34m[PlayList]Merge Music Files\033[0m"
+	 #$(ffmpeg -i "concat:${rdl}" -loglevel panic -c:a copy -c:v copy -f s16le -ar 22.05k -ac 1 ${MusicDir}/all.wav)
          $(ffmpeg -i "concat:${files:1}" -loglevel panic -c:a copy -c:v copy -f s16le -ar 22.05k -ac 1 ${MusicDir}/all.wav)
 	 echo ${files} > .music_last_succ
         fi
     else
        echo -e "\033[34m[PlayList]Merge Music Files\033[0m"
+       #$(ffmpeg -i "concat:${rdl}" -loglevel panic -c:a copy -c:v copy -f s16le -ar 22.05k -ac 1 ${MusicDir}/all.wav)
        $(ffmpeg -i "concat:${files:1}" -loglevel panic -c:a copy -c:v copy -f s16le -ar 22.05k -ac 1 ${MusicDir}/all.wav)
        echo ${files} > .music_last_succ
     fi
